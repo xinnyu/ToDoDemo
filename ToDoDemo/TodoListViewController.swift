@@ -7,49 +7,81 @@
 //
 
 import UIKit
+import RxSwift
 
 class TodoListViewController: UIViewController {
-    var todoItems: [TodoItem] = []
+    var todoItems = Variable<[TodoItem]> ([])
+    let bag = DisposeBag()
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var clearTodoBtn: UIButton!
     @IBOutlet weak var addTodo: UIBarButtonItem!
     
     required init?(coder aDecoder: NSCoder) {
-        todoItems = [TodoItem]()
-        
         super.init(coder: aDecoder)
         loadTodoItems()
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
+
         tableView.delegate = self
+
+        todoItems.asObservable().subscribe(onNext: {
+            [weak self] todos in
+            self?.updateUI(todos: todos)
+        }).addDisposableTo(bag)
     }
 
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
+    func updateUI(todos: [TodoItem]) {
+        clearTodoBtn.isEnabled = !todos.isEmpty
+        self.title = todos.isEmpty ? "Todo" : "Todo: \(todos.count)"
+        addTodo.isEnabled = todos.filter { !$0.isFinished }.count < 5
+        tableView.reloadData()
     }
-    
-    @IBAction func addTodoItem(_ sender: Any) {
-        let newRowIndex = todoItems.count
-        
-        let todoItem = TodoItem(name: "Todo Demo", isFinished: false)
-        todoItems.append(todoItem)
-        
-        let indexPath = IndexPath(row: newRowIndex, section: 0)
-        
-        tableView.insertRows(at: [indexPath], with: .automatic)
-    }
+
     
     @IBAction func saveTodoList(_ sender: Any) {
         saveTodoItems()
     }
     
     @IBAction func clearTodoList(_ sender: Any) {
-        todoItems = [TodoItem]()
-        
-        tableView.reloadData()
+        todoItems.value.removeAll()
+    }
+
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        let naviController = segue.destination as! UINavigationController
+        var todoDetailController: TodoDetailViewController!
+
+        todoDetailController = naviController.topViewController as! TodoDetailViewController
+
+        if segue.identifier == "add todo" {
+            todoDetailController.title = "Add Todo"
+
+            _ = todoDetailController.todoOb.subscribe(
+                onNext: {
+                    [weak self] newTodo in
+                    self?.todoItems.value.append(newTodo)
+                },
+                onDisposed: {
+                    print("Finish adding a new todo.")
+            }
+            )
+        }
+        else if segue.identifier == "show todo detail" {
+            todoDetailController.title = "Edit todo"
+
+            if let indexPath = tableView.indexPath(for: sender as! UITableViewCell) {
+                todoDetailController.todo = todoItems.value[indexPath.row]
+
+                _ = todoDetailController.todoOb.subscribe(
+                    onNext: { [weak self] todo in
+                        self?.todoItems.value[indexPath.row] = todo
+                    },
+                    onDisposed: {
+                        print("Finish editing a todo.")
+                })
+            }
+        }
+
     }
 }

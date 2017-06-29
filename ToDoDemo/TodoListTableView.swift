@@ -14,7 +14,7 @@ extension TodoListViewController: UITableViewDelegate {
                    didSelectRowAt indexPath: IndexPath) {
         
         if let cell = tableView.cellForRow(at: indexPath) {
-            let todo = todoItems[indexPath.row]
+            let todo = todoItems.value[indexPath.row]
             
             todo.toggleFinished()
             configureStatus(for: cell, with: todo)
@@ -27,26 +27,28 @@ extension TodoListViewController: UITableViewDelegate {
                    commit editingStyle: UITableViewCellEditingStyle,
                    forRowAt indexPath: IndexPath) {
         
-        todoItems.remove(at: indexPath.row)
-        
-        // 2
-        let indexPaths = [indexPath]
-        tableView.deleteRows(at: indexPaths, with: .automatic)
+        todoItems.value.remove(at: indexPath.row)
     }
+
+    func tableView(_ tableView: UITableView, accessoryButtonTappedForRowWith indexPath: IndexPath) {
+        performSegue(withIdentifier: "show todo detail", sender: tableView.cellForRow(at: indexPath))
+    }
+
+    
 }
 
 // UITableView data source
 extension TodoListViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView,
                    numberOfRowsInSection section: Int) -> Int {
-        return self.todoItems.count
+        return self.todoItems.value.count
     }
     
     func tableView(_ tableView: UITableView,
                    cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(
             withIdentifier: "TodoItem", for: indexPath)
-        let todo = todoItems[indexPath.row]
+        let todo = todoItems.value[indexPath.row]
         
         configureLabel(for: cell, with: todo)
         configureStatus(for: cell, with: todo)
